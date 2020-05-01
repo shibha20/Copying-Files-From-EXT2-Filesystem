@@ -356,7 +356,7 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
     char str[]= "/arduino-1.6.7-linux64.tar.xz";
-    char str1[]="something3";
+    char str1[]="something2";
     copyFileToHost(ext2File, str, str1);
 }
 
@@ -1221,11 +1221,8 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     }else{
         for (int i = 0; i < numOfDataBlocks ; ++i) {
             if ( numOfBytesToWrite < f->superBlocks.s_log_block_size){
-                uint8_t * actualBlock = NULL;
-                actualBlock= new uint8_t [numOfBytesInIncompleteBlock];
                 fetchBlockFromFile(f,&inode,i,dataBlock);
-                memcpy(dataBlock,actualBlock,numOfBytesInIncompleteBlock);
-                write(fd,actualBlock,numOfBytesInIncompleteBlock);
+                write(fd,dataBlock,numOfBytesInIncompleteBlock);
                 break;
             } else{
                 fetchBlockFromFile(f,&inode,i,dataBlock);
