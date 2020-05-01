@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
+#include<string>
 
 using namespace std;
 
@@ -352,12 +353,11 @@ struct Directory{
 
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
-int main(int argc,char **argv){
-    Ext2File *ext2File= ext2Open("../Test-fixed-4k.vdi",0);
-    dumpSuperBlock(&ext2File->superBlocks);
-//    char str[]= "/examples/08.Strings/StringAdditionOperator";
-//    char str1[]="something1";
-//    copyFileToHost(ext2File, str, str1);
+int main(){
+    Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
+    char str[]= "/arduino-1.6.7-linux64.tar.xz";
+    char str1[]="something3";
+    copyFileToHost(ext2File, str, str1);
 }
 
 
@@ -1200,25 +1200,40 @@ uint32_t traversePath(Ext2File *f,char *path){
 
 //start of step 8
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
-    uint32_t iNum = traversePath(f,vdiFileName);
-    Inode inode;
-    fetchInode(f,iNum,&inode);
-    int fd = open(hostFilePath,O_WRONLY|O_CREAT,6099);
-    uint32_t  numOfDataBlocks = inode.i_size/f->superBlocks.s_log_block_size;
-    uint32_t numOfBytesInIncompleteBlock = inode.i_size % f->superBlocks.s_log_block_size;
-    uint32_t numOfBytesToWrite;
     uint8_t * dataBlock = NULL;
     dataBlock= new uint8_t [f->superBlocks.s_log_block_size];
+    uint32_t iNum = traversePath(f,vdiFileName);
+    Inode inode;
 
-    for (int i = 0; i <= numOfDataBlocks ; ++i) {
-        if ( numOfBytesToWrite < f->superBlocks.s_log_block_size){
-           numOfBytesToWrite=numOfBytesInIncompleteBlock;
-        } else{
-            numOfBytesToWrite= f->superBlocks.s_log_block_size;
+    fetchInode(f,iNum,&inode);
+    int fd = open(hostFilePath,O_WRONLY|O_CREAT,0666);
+    uint32_t  numOfDataBlocks = (inode.i_size/f->superBlocks.s_log_block_size);
+    uint32_t numOfBytesInIncompleteBlock = (inode.i_size) % f->superBlocks.s_log_block_size;
+
+
+    uint32_t  numOfBytesToWrite = inode.i_size;
+    cout << inode.i_size << endl;
+
+    if (numOfDataBlocks ==0){
+        fetchBlockFromFile(f,&inode,0,dataBlock);
+        write(fd,dataBlock,numOfBytesInIncompleteBlock);
+        return 0;
+    }else{
+        for (int i = 0; i < numOfDataBlocks ; ++i) {
+            if ( numOfBytesToWrite < f->superBlocks.s_log_block_size){
+                uint8_t * actualBlock = NULL;
+                actualBlock= new uint8_t [numOfBytesInIncompleteBlock];
+                fetchBlockFromFile(f,&inode,i,dataBlock);
+                memcpy(dataBlock,actualBlock,numOfBytesInIncompleteBlock);
+                write(fd,actualBlock,numOfBytesInIncompleteBlock);
+                break;
+            } else{
+                fetchBlockFromFile(f,&inode,i,dataBlock);
+                write(fd,dataBlock,f->superBlocks.s_log_block_size);
+                numOfBytesToWrite = numOfBytesToWrite -  f->superBlocks.s_log_block_size;
+            }
         }
-        fetchBlockFromFile(f,&inode,i,dataBlock);
-        write(fd,dataBlock,numOfBytesToWrite);
-        numOfBytesToWrite= numOfBytesToWrite-f->superBlocks.s_log_block_size;
     }
+
     return 0;
 }
