@@ -473,7 +473,6 @@ ssize_t partitionWrite(struct PartitionFile *partitionFile,void *buf,size_t coun
 }
 
 
-//EDITTTTTTTTTTTTTTTTTTTTTTTT THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 off_t partitionSeek(struct PartitionFile *f,off_t offset,int anchor){
     off_t location;
     int64_t cur = f->f->cursor;
