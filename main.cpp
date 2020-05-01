@@ -353,10 +353,11 @@ struct Directory{
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(int argc,char **argv){
-    Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
-    char str[]= "/examples/08.Strings/StringAdditionOperator";
-    char str1[]="something1";
-    copyFileToHost(ext2File, str, str1);
+    Ext2File *ext2File= ext2Open("../Test-fixed-4k.vdi",0);
+    dumpSuperBlock(&ext2File->superBlocks);
+//    char str[]= "/examples/08.Strings/StringAdditionOperator";
+//    char str1[]="something1";
+//    copyFileToHost(ext2File, str, str1);
 }
 
 
@@ -397,20 +398,22 @@ ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
     return 0;
 }
 
+//debugged based on Dr.Kramer's feedback
 off_t vdiSeek (VDIFile *f, off_t offset, int anchor){
     //create a new location within the file
     off_t location;
 
-    //if seeking data from the beginning of the file
+    //if seeking data from the beginning of the file (not the beginning of the data in the file)
     if (anchor == SEEK_SET){
         location = offset;
     }
-        //add offset to the current location and start reading or writing from there
-        //if current location is 1024 and the user wants to read 4 position (offset) from 1024, the new location is 1028
+
+    //if seeking from the current position of the cursos
     else if (anchor == SEEK_CUR){
         location = f->cursor+offset;
     }
-        //start reading or writing from the end of the file plus offset
+
+    //if seeking from the end of the file
     else if (anchor == SEEK_END){
         location = offset + f->header.cbDisk;
     }
@@ -451,13 +454,16 @@ ssize_t partitionRead(struct PartitionFile *partitionFile,void *buf,size_t count
      After first 446 bytes in a VDI header, the next 64 bytes contain 4 partition entries of size 16 bytes each.
      Last 4 bytes of each partition entry contains LBA.LBA inside first partition entry tells you the number of
      sectors from first sector (mbr) to given partition. So, lba of first partition*512 gives total number of bytes from the beginning of the disk
-     the first partition.
-    Finding the last partition :  (first lba+number of sectors) * 512 ,only reading the first partition entry because other partitions are empty*/
-    /* read if the cursor and cursor+ count are between the beginning and end of the first partition. */
-    //code taken from conversation with Dr.Kramer
+     the first partition.*/
+
+    //code written under Dr.Kramer's guidance
+
+    // If cursor is outside the partition, read only the contents reduce our count to read the contents only within our partition
     if ( (partitionFile->f->cursor + count) >  (512 * (partitionFile->partitionEntry.LBAFirstSector + partitionFile->partitionEntry.numSectors)) ){
+        //remove the part of the count outside the partition
         count = (partitionFile->partitionEntry.LBAFirstSector+ partitionFile->partitionEntry.numSectors)*512- partitionFile->f->cursor;
     }
+
     return vdiRead(partitionFile->f,buf,count);
 }
 
@@ -475,16 +481,21 @@ ssize_t partitionWrite(struct PartitionFile *partitionFile,void *buf,size_t coun
 
 off_t partitionSeek(struct PartitionFile *f,off_t offset,int anchor){
     off_t location;
+    //store the current position of the cursor
     int64_t cur = f->f->cursor;
+
+    //new location of the cursor to seek to
     int64_t newCur;
 
-    // set the cursor
+    //seek the cursor from the beginning of the partition to the given offset
     newCur = vdiSeek(f->f,offset+f->partitionEntry.LBAFirstSector*512,anchor);
 
+    //do not change the cursor to the sought position if it is outside our partition
     if (newCur < f->partitionEntry.LBAFirstSector*512 ||
         newCur >= 512 *(f->partitionEntry.LBAFirstSector+f->partitionEntry.numSectors) )
         f->f->cursor = cur;
 
+    //return out current cursor position in the partition
     return f->f->cursor - f->partitionEntry.LBAFirstSector*512;
 }
 
