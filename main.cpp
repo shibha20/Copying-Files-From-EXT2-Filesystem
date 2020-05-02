@@ -355,8 +355,8 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
-    char str[]= "/examples/02.Digital/DigitalInputPullup/layout.png";
-    char str1[]="something2.png";
+    char str[]= "/examples/02.Digital/toneMelody/schematic.png";
+    char str1[]="new.png";
 
     copyFileToHost(ext2File, str, str1);
 //      char str2[]= "../Test-fixed-1k.vdi";
@@ -365,7 +365,7 @@ int main(){
 
 //start of step 1
 struct VDIFile *vdiOpen (char *fn){
-    int fd = open(fn, O_RDWR);
+    int fd = open(fn,O_RDWR|O_BINARY);
     //if file opened
     if (fd>1){
         //create a vdi header structure
@@ -1203,6 +1203,7 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     fetchInode(f,iNum,&inode);
     int fd = open(hostFilePath,O_WRONLY|O_CREAT|O_BINARY|O_TRUNC,0666);
     int bytesLeft = inode.i_size,bNum=0;
+
     uint32_t  bytesWritten= 0;
 
     while (bytesLeft > 0) {
