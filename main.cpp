@@ -356,7 +356,7 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
     char str[]= "/examples/02.Digital/DigitalInputPullup/layout.png";
-    char str1[]="something4.png";
+    char str1[]="something2.png";
 
     copyFileToHost(ext2File, str, str1);
 //      char str2[]= "../Test-fixed-1k.vdi";
@@ -394,7 +394,7 @@ ssize_t vdiRead (struct VDIFile *f,void *buf,size_t count){
 
 ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
     //seek the first position to be written at by adding the cursor to the start of the VDI file's data space
-    lseek(f->fd,f->cursor, SEEK_SET);
+    lseek(f->fd,f->cursor + f->header.offData, SEEK_SET);
     //write count number of bytes from the file with file descriptor f to the buffer "buf"
     write(f->fd,buf,count);
     return 0;
@@ -470,14 +470,12 @@ ssize_t partitionRead(struct PartitionFile *partitionFile,void *buf,size_t count
 }
 
 ssize_t partitionWrite(struct PartitionFile *partitionFile,void *buf,size_t count){
-    if (   partitionFile->partitionEntry.LBAFirstSector * 512 <= (*partitionFile).f->cursor &&
-           ((count +partitionFile->f->cursor) <=  ( partitionFile->partitionEntry.LBAFirstSector+ partitionFile->partitionEntry.numSectors)*512)){
-        int num = vdiWrite(partitionFile->f,buf,count );
-        return num;
+    if ( (partitionFile->f->cursor + count) >  (512 * (partitionFile->partitionEntry.LBAFirstSector + partitionFile->partitionEntry.numSectors)) ){
+        //remove the part of the count outside the partition
+        count = (partitionFile->partitionEntry.LBAFirstSector+ partitionFile->partitionEntry.numSectors)*512- partitionFile->f->cursor;
     }
-    else {
-        return -1;
-    }
+
+    return vdiWrite(partitionFile->f,buf,count);
 }
 
 off_t partitionSeek(struct PartitionFile *f,off_t offset,int anchor){
@@ -1203,24 +1201,23 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     uint32_t iNum = traversePath(f,vdiFileName);
     Inode inode;
     fetchInode(f,iNum,&inode);
-    int fd = open(hostFilePath,O_WRONLY|O_CREAT,0666);
+    int fd = open(hostFilePath,O_WRONLY|O_CREAT|O_BINARY|O_TRUNC,0666);
     int bytesLeft = inode.i_size,bNum=0;
+    uint32_t  bytesWritten= 0;
 
     while (bytesLeft > 0) {
         fetchBlockFromFile(f,&inode,bNum++,dataBlock);
         if (bytesLeft < f->superBlocks.s_log_block_size){
-            cout << bytesLeft << endl;
-            write(fd,dataBlock,bytesLeft);
+            bytesWritten = write(fd,dataBlock,bytesLeft);
             bytesLeft -= bytesLeft;
         }
         else{
-            cout << bytesLeft << endl;
-            write(fd,dataBlock,f->superBlocks.s_log_block_size);
+            bytesWritten = write(fd,dataBlock,f->superBlocks.s_log_block_size);
             bytesLeft -= f->superBlocks.s_log_block_size;
         }
     }
     close (fd);
-    delete dataBlock;
+    delete [] dataBlock;
 }
 
 
