@@ -132,8 +132,8 @@ void rewindDir(struct Directory *d);
 void closeDir(struct Directory *d);
 
 uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target);
-uint32_t traversePath(Ext2File *f,char *path);
-void displayAllFilesInVDI (Ext2File *f,char *vdiFileName);
+uint32_t traversePath(Ext2File *f);
+void displayAllFilesInVDI (struct  Ext2File *f,uint32_t dirNum);
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -355,12 +355,12 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
-    char str[]= "/examples/02.Digital/toneMelody/schematic.png";
-    char str1[]="new.png";
+    displayAllFilesInVDI (ext2File,2);
+//    char str[]= "/arduino-1.6.7-linux64.tar.xz";
+//    char str1[]="new2.tar.xz";
+//
+//    copyFileToHost(ext2File, str, str1);
 
-    copyFileToHost(ext2File, str, str1);
-//      char str2[]= "../Test-fixed-1k.vdi";
-//      displayAllFilesInVDI(ext2File,str2);
 }
 
 //start of step 1
@@ -1222,37 +1222,29 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
 }
 
 
-void displayAllFilesInVDI (Ext2File *f,char *vdiFileName){
+void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     Directory *directory;
-    directory = openDir(f,2);
-
-    Inode inode;
-    fetchInode(f,2,&inode);
-
+    directory = openDir(f, dirNum);
     char name[256];
     uint32_t iNum;
+    uint32_t count = 0;
 
-    uint32_t count =0;
+    while (getNextDirent(directory, iNum, name)) {
+        if (count >= 2) {
+            cout << name  << endl;
+            Inode inode;
+            fetchInode(f, iNum, &inode);
 
-
-    //get the first directory entry in root
-    while (getNextDirent(directory,iNum,name)){
-        if (count >= 2 ){
-            cout << name;
-            Directory *directory1;
-            directory1 = openDir(f,iNum);
-            char newName [256];
-
-            uint32_t secondCount =0;
-            while (getNextDirent(directory,iNum,newName)){
-                if (secondCount >= 2){
-                    cout << newName;
-                }
-                secondCount++;
+            if (inode.i_mode == 16877) {
+                cout << endl;
+                cout << "~~~~~~~~~~~~~~~~Sub Directory or File in the directory " << "[" << name << "] ~~~~~~~~~~~~~~~~" << endl;
+                displayAllFilesInVDI(f,iNum);
             }
 
         }
+
         count ++;
     }
 
+    cout << endl;
 }
