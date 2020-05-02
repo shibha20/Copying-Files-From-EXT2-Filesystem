@@ -356,7 +356,8 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
     char str[]= "/examples/02.Digital/DigitalInputPullup/layout.png";
-    char str1[]="something3.png";
+    char str1[]="something4.png";
+
     copyFileToHost(ext2File, str, str1);
 //      char str2[]= "../Test-fixed-1k.vdi";
 //      displayAllFilesInVDI(ext2File,str2);
@@ -564,8 +565,6 @@ int32_t fetchBlock(struct Ext2File *f,uint32_t blockNum, void *buf){
     }else{
         return -1;
     }
-
-
 }
 
 //write from a buffer to a given block in a partition in an Ext2File
@@ -590,7 +589,6 @@ int32_t fetchSuperblock(struct Ext2File *f,uint32_t blockNum, struct Ext2Superbl
     if (groupNumber==0){
         //seek to the end of the block before superblock
         partitionSeek(f->partitionFile,f->superBlocks.s_first_data_block *f->superBlocks.s_log_block_size,SEEK_SET);
-
         //read 1024 bytes from there into the passed superblock
         partitionRead(f->partitionFile,sb,1024);
         (sb->s_log_block_size) = 1024 << sb->s_log_block_size;
@@ -753,7 +751,8 @@ int32_t writeInode(struct Ext2File *f,uint32_t iNum, struct Inode *buf) {
     int num_inodes_per_block= f->superBlocks.s_log_block_size/f->superBlocks.s_inode_size;
     int  inode_block_num = (iNum / num_inodes_per_block) + f->blockGroupDescriptorstable[blockGroupNumber].bg_inode_table;
     int offset_of_inode_in_block= iNum % num_inodes_per_block;
-    char tempBlock [f->superBlocks.s_log_block_size];
+    uint8_t * tempBlock = NULL;
+    tempBlock= new uint8_t [f->superBlocks.s_log_block_size];
     writeBlock(f,inode_block_num,tempBlock);
     *buf = ( (Inode *) tempBlock)[offset_of_inode_in_block];
 }
@@ -1201,18 +1200,18 @@ uint32_t traversePath(Ext2File *f,char *path){
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     uint8_t * dataBlock = NULL;
     dataBlock= new uint8_t [f->superBlocks.s_log_block_size];
-
     uint32_t iNum = traversePath(f,vdiFileName);
     Inode inode;
     fetchInode(f,iNum,&inode);
     int fd = open(hostFilePath,O_WRONLY|O_CREAT,0666);
     int bytesLeft = inode.i_size,bNum=0;
+
     while (bytesLeft > 0) {
         fetchBlockFromFile(f,&inode,bNum++,dataBlock);
         if (bytesLeft < f->superBlocks.s_log_block_size){
+            cout << bytesLeft << endl;
             write(fd,dataBlock,bytesLeft);
             bytesLeft -= bytesLeft;
-            cout << bytesLeft << endl;
         }
         else{
             cout << bytesLeft << endl;
@@ -1220,8 +1219,9 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
             bytesLeft -= f->superBlocks.s_log_block_size;
         }
     }
+    close (fd);
+    delete dataBlock;
 }
-
 
 
 void displayAllFilesInVDI (Ext2File *f,char *vdiFileName){
@@ -1235,7 +1235,6 @@ void displayAllFilesInVDI (Ext2File *f,char *vdiFileName){
     uint32_t iNum;
 
     uint32_t count =0;
-
 
 
     //get the first directory entry in root
@@ -1257,4 +1256,5 @@ void displayAllFilesInVDI (Ext2File *f,char *vdiFileName){
         }
         count ++;
     }
+
 }
