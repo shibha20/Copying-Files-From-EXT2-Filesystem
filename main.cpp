@@ -133,7 +133,7 @@ void closeDir(struct Directory *d);
 
 uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target);
 uint32_t traversePath(Ext2File *f,char *path);
-
+void displayAllFilesInVDI (Ext2File *f,char *vdiFileName);
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -355,11 +355,12 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
     Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
-    char str[]= "/arduino-1.6.7-linux64.tar.xz";
-    char str1[]="something2";
+    char str[]= "/examples/02.Digital/DigitalInputPullup/layout.png";
+    char str1[]="something3.png";
     copyFileToHost(ext2File, str, str1);
+//      char str2[]= "../Test-fixed-1k.vdi";
+//      displayAllFilesInVDI(ext2File,str2);
 }
-
 
 //start of step 1
 struct VDIFile *vdiOpen (char *fn){
@@ -477,7 +478,6 @@ ssize_t partitionWrite(struct PartitionFile *partitionFile,void *buf,size_t coun
         return -1;
     }
 }
-
 
 off_t partitionSeek(struct PartitionFile *f,off_t offset,int anchor){
     off_t location;
@@ -852,7 +852,6 @@ void dumpInode(Inode *inode){
 
 //end of step 4
 
-
 //start of step 5
 //fetch the block bNum in inode i to the given buffer
 int32_t fetchBlockFromFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, void *buf){
@@ -1202,35 +1201,60 @@ uint32_t traversePath(Ext2File *f,char *path){
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     uint8_t * dataBlock = NULL;
     dataBlock= new uint8_t [f->superBlocks.s_log_block_size];
+
     uint32_t iNum = traversePath(f,vdiFileName);
     Inode inode;
-
     fetchInode(f,iNum,&inode);
     int fd = open(hostFilePath,O_WRONLY|O_CREAT,0666);
-    uint32_t  numOfDataBlocks = (inode.i_size/f->superBlocks.s_log_block_size);
-    uint32_t numOfBytesInIncompleteBlock = (inode.i_size) % f->superBlocks.s_log_block_size;
-
-
-    uint32_t  numOfBytesToWrite = inode.i_size;
-    cout << inode.i_size << endl;
-
-    if (numOfDataBlocks ==0){
-        fetchBlockFromFile(f,&inode,0,dataBlock);
-        write(fd,dataBlock,numOfBytesInIncompleteBlock);
-        return 0;
-    }else{
-        for (int i = 0; i < numOfDataBlocks ; ++i) {
-            if ( numOfBytesToWrite < f->superBlocks.s_log_block_size){
-                fetchBlockFromFile(f,&inode,i,dataBlock);
-                write(fd,dataBlock,numOfBytesInIncompleteBlock);
-                break;
-            } else{
-                fetchBlockFromFile(f,&inode,i,dataBlock);
-                write(fd,dataBlock,f->superBlocks.s_log_block_size);
-                numOfBytesToWrite = numOfBytesToWrite -  f->superBlocks.s_log_block_size;
-            }
+    int bytesLeft = inode.i_size,bNum=0;
+    while (bytesLeft > 0) {
+        fetchBlockFromFile(f,&inode,bNum++,dataBlock);
+        if (bytesLeft < f->superBlocks.s_log_block_size){
+            write(fd,dataBlock,bytesLeft);
+            bytesLeft -= bytesLeft;
+            cout << bytesLeft << endl;
+        }
+        else{
+            cout << bytesLeft << endl;
+            write(fd,dataBlock,f->superBlocks.s_log_block_size);
+            bytesLeft -= f->superBlocks.s_log_block_size;
         }
     }
+}
 
-    return 0;
+
+
+void displayAllFilesInVDI (Ext2File *f,char *vdiFileName){
+    Directory *directory;
+    directory = openDir(f,2);
+
+    Inode inode;
+    fetchInode(f,2,&inode);
+
+    char name[256];
+    uint32_t iNum;
+
+    uint32_t count =0;
+
+
+
+    //get the first directory entry in root
+    while (getNextDirent(directory,iNum,name)){
+        if (count >= 2 ){
+            cout << name;
+            Directory *directory1;
+            directory1 = openDir(f,iNum);
+            char newName [256];
+
+            uint32_t secondCount =0;
+            while (getNextDirent(directory,iNum,newName)){
+                if (secondCount >= 2){
+                    cout << newName;
+                }
+                secondCount++;
+            }
+
+        }
+        count ++;
+    }
 }
