@@ -138,6 +138,7 @@ uint32_t traversePath(Ext2File *f);
 void displayAllFilesInVDI (struct  Ext2File *f,uint32_t dirNum);
 void displayFilesWithInfo(Ext2File *f, uint32_t dirNum);
 void programEngine();
+void filePermission(struct Inode inode);
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -358,7 +359,7 @@ struct Directory{
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
-    programEngine();
+   programEngine();
 }
 
 
@@ -422,7 +423,7 @@ void programEngine(){
     char decision;
     cin >> decision;
     if (decision =='N') programEngine();
-    else cout << "Thank you for using!" << endl;
+    else cout << "Thank you for using the software!" << endl;
 }
 //start of step 1
 struct VDIFile *vdiOpen (char *fn){
@@ -1237,6 +1238,7 @@ uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target){
             return diNum;
         }
     }
+    return 0;
 }
 
 uint32_t traversePath(Ext2File *f,char *path){
@@ -1259,7 +1261,7 @@ uint32_t traversePath(Ext2File *f,char *path){
 
 //start of step 8
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
-
+    cout << "Copying.. "<< endl;
     char *vdiName = new char [256];
     vdiName = vdiFileName;
 
@@ -1290,8 +1292,6 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     close (fd);
     delete [] dataBlock;
 }
-
-
 void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     Directory *directory;
     directory = openDir(f, dirNum);
@@ -1312,9 +1312,73 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     }
     cout << endl;
 }
+//end of step 8
 
 string filepath;
 
+//extra credit
+
+string returnPermission(string permission,uint16_t i_mode){
+
+    int binary[100];
+    int a[100];
+
+    int i =0;
+
+    //change imode to binary
+    while (i_mode > 0) {
+        binary[i] = i_mode % 2;
+        i_mode= i_mode / 2;
+        i++;
+    }
+
+
+    int count = 0;
+
+    for (int j = i - 1; j >= 0; j--) {
+            a[count] = binary[j];
+            count++;
+    }
+
+    int group [i-11];
+    int user[i-10];
+    int eElse[i-9];
+
+    group[0] =a[i-9];
+    group[1] = a[i-8];
+    group[2] = a[i-7];
+
+    user[0] =a[i-6];
+    user[1] = a[i-5];
+    user[2] = a[i-4];
+
+    eElse[0] =a[i-3];
+    eElse[1] = a[i-2];
+    eElse[2] = a[i-1];
+
+
+    if (group[0] ==1) permission.append("r");
+    else permission.append("-");
+    if (group[1] ==1) permission.append("w");
+    else permission.append("-");
+    if (group[2] ==1) permission.append("x");
+    else permission.append("-");
+    if (user[0] ==1) permission.append("r");
+    else permission.append("-");
+    if (user[1] ==1) permission.append("w");
+    else permission.append("-");
+    if (user[2] ==1) permission.append("x");
+    else permission.append("-");
+    if (eElse[0] ==1) permission.append("r");
+    else permission.append("-");
+    if (eElse[1] ==1) permission.append("w");
+    else permission.append("-");
+    if (eElse[2] ==1) permission.append("x");
+    else permission.append("-");
+
+    return permission;
+
+}
 
 void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
     Directory *directory;
@@ -1328,17 +1392,36 @@ void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
         if (count >= 2) {
             Inode inode;
             fetchInode(f, iNum, &inode);
+
+            string finalPermission;
+
+            if (directory->dirent->fileType ==2){
+                finalPermission.append("d");
+            }else{
+                finalPermission.append("-");
+            }
+
+            finalPermission = returnPermission(finalPermission,inode.i_mode);
+
+            //getting file path of the file
             filepath.append("/");
             filepath.append(name);
+
+            //getting last access time in readable format
             time_t accessTime = inode.i_mtime;
             string readableTime = ctime(&accessTime);
+
+
+
             cout << "File path : " << filepath << endl;
+            cout << "File Permission : "  << finalPermission << endl;
             cout << "UID : " << inode.i_uid << endl;
             cout << "GID : " << inode.i_gid << endl;
             cout << "Links Count : " << inode.i_links_count << endl;
             cout << "File Size : " << inode.i_size << endl;
             cout << "Inode number : " << iNum << endl;
             cout << "Last Access Time : " << readableTime << endl;
+
             if (inode.i_mode == 16877) {
                 displayFilesWithInfo(f,iNum);
             }
