@@ -137,6 +137,7 @@ uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target);
 uint32_t traversePath(Ext2File *f);
 void displayAllFilesInVDI (struct  Ext2File *f,uint32_t dirNum);
 void displayFilesWithInfo(Ext2File *f, uint32_t dirNum);
+void programEngine();
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -357,6 +358,19 @@ struct Directory{
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
+    programEngine();
+}
+
+
+void primaryDisplay(){
+    cout << "1. Copy A File From a VDI File " << endl;
+    cout << "2. Copy A File to a VDI File " << endl;
+    cout << "3. List all the directories and files in a VDI File" << endl;
+    cout << "4. Show properties of all the files and directories in a VDI File" << endl;
+    cout << "Please enter 1,2, 3 or 4 based on your choice:  " << endl;
+}
+
+void programEngine(){
     primaryDisplay();
     int choice;
     cin >> choice;
@@ -372,7 +386,7 @@ int main(){
     }
 
     if (choice ==1){
-       // Ext2File *ext2Open (char *fn, int32_t pNum)
+        // Ext2File *ext2Open (char *fn, int32_t pNum)
         //input everything required;
         cout << "Type the path to the vdiFile System which you would like to copy from (Example : ../Test-fixed-1k.vdi) " << endl;
         char *vdiFileName = new char [256];
@@ -401,18 +415,14 @@ int main(){
         cin >> vdiFileName;
         cout << endl;
         Ext2File *ext2File= ext2Open(vdiFileName,0);
-        cout << "GID" << '\t' << "UID" << '\t' << "#Links" << '\t'<< "File Size" << "      " << '\t'   <<  "iNum" << '\t' <<  "File Path"  <<endl;
         displayFilesWithInfo(ext2File, 2);
     }
-}
 
-
-void primaryDisplay(){
-    cout << "1. Copy A File From a VDI File " << endl;
-    cout << "2. Copy A File to a VDI File " << endl;
-    cout << "3. List all the directories and files in a VDI File" << endl;
-    cout << "4. Show properties of all the files and directories in a VDI File" << endl;
-    cout << "Please enter 1,2, 3 or 4 based on your choice:  " << endl;
+    cout << "Do you wish to end the software? Type Y or N " << endl;
+    char decision;
+    cin >> decision;
+    if (decision =='N') programEngine();
+    else cout << "Thank you for using!" << endl;
 }
 //start of step 1
 struct VDIFile *vdiOpen (char *fn){
@@ -1291,21 +1301,15 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
 
     while (getNextDirent(directory, iNum, name)) {
         if (count >= 2) {
-            cout << name  << endl;
             Inode inode;
             fetchInode(f, iNum, &inode);
-
+            cout << name << endl;
             if (inode.i_mode == 16877) {
-                cout << endl;
-                cout << "~~~~~~~~~~~~~~~~Sub Directory or File in the directory " << "[" << name << "] ~~~~~~~~~~~~~~~~" << endl;
                 displayAllFilesInVDI(f,iNum);
             }
-
         }
-
         count ++;
     }
-
     cout << endl;
 }
 
@@ -1326,7 +1330,15 @@ void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
             fetchInode(f, iNum, &inode);
             filepath.append("/");
             filepath.append(name);
-             cout << inode.i_gid <<'\t' << inode.i_uid <<'\t'<<inode.i_links_count << '\t' << inode.i_size<< "      " << '\t'   << iNum<< '\t' <<  filepath << endl;
+            time_t accessTime = inode.i_mtime;
+            string readableTime = ctime(&accessTime);
+            cout << "File path : " << filepath << endl;
+            cout << "UID : " << inode.i_uid << endl;
+            cout << "GID : " << inode.i_gid << endl;
+            cout << "Links Count : " << inode.i_links_count << endl;
+            cout << "File Size : " << inode.i_size << endl;
+            cout << "Inode number : " << iNum << endl;
+            cout << "Last Access Time : " << readableTime << endl;
             if (inode.i_mode == 16877) {
                 displayFilesWithInfo(f,iNum);
             }
