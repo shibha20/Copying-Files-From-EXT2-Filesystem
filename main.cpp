@@ -84,6 +84,8 @@ void displayBuffer(uint8_t *buf,uint32_t count, uint64_t offset){
 
 }
 
+void primaryDisplay();
+
 //initializing 5 basic VDI I/O functions
 struct VDIFile *vdiOpen (char *fn);
 void vdiClose (struct VDIFile *f);
@@ -134,6 +136,7 @@ void closeDir(struct Directory *d);
 uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target);
 uint32_t traversePath(Ext2File *f);
 void displayAllFilesInVDI (struct  Ext2File *f,uint32_t dirNum);
+void displayFilesWithInfo(Ext2File *f, uint32_t dirNum);
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -354,15 +357,63 @@ struct Directory{
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
 int main(){
-    Ext2File *ext2File= ext2Open("../Test-fixed-1k.vdi",0);
-    displayAllFilesInVDI (ext2File,2);
-//    char str[]= "/arduino-1.6.7-linux64.tar.xz";
-//    char str1[]="new2.tar.xz";
-//
-//    copyFileToHost(ext2File, str, str1);
+    primaryDisplay();
+    int choice;
+    cin >> choice;
 
+    while (choice <1 || choice > 4 ){
+        cout << endl;
+        cout << "Please make a choice between 1 and 4" << endl;
+        primaryDisplay();
+        cin >> choice;
+        if (choice > 0 && choice <=4 ){
+            break;
+        }
+    }
+
+    if (choice ==1){
+       // Ext2File *ext2Open (char *fn, int32_t pNum)
+        //input everything required;
+        cout << "Type the path to the vdiFile System which you would like to copy from (Example : ../Test-fixed-1k.vdi) " << endl;
+        char *vdiFileName = new char [256];
+        cin >> vdiFileName;
+        cout << "Type the path to the file in the vdiFileSystem which you would like to copy to your host system" << endl;
+        char *vdiFile = new char [256];
+        cin >> vdiFile;
+        cout << "Type the path to the name of the file in your host which you would like to copy over to" << endl;
+        char *hostFilePath = new char [256];
+        cin >> hostFilePath;
+        Ext2File *ext2File= ext2Open(vdiFileName,0);
+        copyFileToHost(ext2File,vdiFile,hostFilePath);
+    }else if (choice ==2){
+        //input everything required;
+        //copy files from host;
+    }else if (choice ==3){
+        cout << "Type the path to the vdiFile System whose files and directories you want to look at(Example : ../Test-fixed-1k.vdi) " << endl;
+        char *vdiFileName = new char [256];
+        cin >> vdiFileName;
+        cout << endl;
+        Ext2File *ext2File= ext2Open(vdiFileName,0);
+        displayAllFilesInVDI (ext2File,2);
+    }else{
+        cout << "Type the path to the vdiFile System whose files and directories information you want to look at(Example : ../Test-fixed-1k.vdi) " << endl;
+        char *vdiFileName = new char [256];
+        cin >> vdiFileName;
+        cout << endl;
+        Ext2File *ext2File= ext2Open(vdiFileName,0);
+        cout << "GID" << '\t' << "UID" << '\t' << "#Links" << '\t'<< "File Size" << "      " << '\t'   <<  "iNum" << '\t' <<  "File Path"  <<endl;
+        displayFilesWithInfo(ext2File, 2);
+    }
 }
 
+
+void primaryDisplay(){
+    cout << "1. Copy A File From a VDI File " << endl;
+    cout << "2. Copy A File to a VDI File " << endl;
+    cout << "3. List all the directories and files in a VDI File" << endl;
+    cout << "4. Show properties of all the files and directories in a VDI File" << endl;
+    cout << "Please enter 1,2, 3 or 4 based on your choice:  " << endl;
+}
 //start of step 1
 struct VDIFile *vdiOpen (char *fn){
     int fd = open(fn,O_RDWR|O_BINARY);
@@ -738,6 +789,7 @@ int32_t fetchInode(struct Ext2File *f,uint32_t iNum, struct Inode *buf){
     tempBlock= new uint8_t [f->superBlocks.s_log_block_size];
     fetchBlock(f,inode_block_num,tempBlock);
     *buf = ( (Inode *) tempBlock)[offset_of_inode_in_block];
+    return 0;
 }
 
 //write inode buf into the given inode number
@@ -753,6 +805,7 @@ int32_t writeInode(struct Ext2File *f,uint32_t iNum, struct Inode *buf) {
     tempBlock= new uint8_t [f->superBlocks.s_log_block_size];
     writeBlock(f,inode_block_num,tempBlock);
     *buf = ( (Inode *) tempBlock)[offset_of_inode_in_block];
+    return 0;
 }
 
 int32_t inodeInUse(struct Ext2File *f,uint32_t iNum){
@@ -1196,6 +1249,10 @@ uint32_t traversePath(Ext2File *f,char *path){
 
 //start of step 8
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
+
+    char *vdiName = new char [256];
+    vdiName = vdiFileName;
+
     uint8_t * dataBlock = NULL;
     dataBlock= new uint8_t [f->superBlocks.s_log_block_size];
     uint32_t iNum = traversePath(f,vdiFileName);
@@ -1217,6 +1274,9 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
             bytesLeft -= f->superBlocks.s_log_block_size;
         }
     }
+
+    cout << "File has been copied to "  << hostFilePath << endl;
+
     close (fd);
     delete [] dataBlock;
 }
@@ -1248,3 +1308,33 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
 
     cout << endl;
 }
+
+string filepath;
+
+
+void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
+    Directory *directory;
+    directory = openDir(f, dirNum);
+    char name[256];
+    uint32_t iNum;
+    uint32_t count = 0;
+    string newfilepath = filepath;
+
+    while (getNextDirent(directory, iNum, name)) {
+        if (count >= 2) {
+            Inode inode;
+            fetchInode(f, iNum, &inode);
+            filepath.append("/");
+            filepath.append(name);
+             cout << inode.i_gid <<'\t' << inode.i_uid <<'\t'<<inode.i_links_count << '\t' << inode.i_size<< "      " << '\t'   << iNum<< '\t' <<  filepath << endl;
+            if (inode.i_mode == 16877) {
+                displayFilesWithInfo(f,iNum);
+            }
+            filepath = newfilepath;
+        }
+        count ++;
+    }
+    cout << endl;
+}
+
+
