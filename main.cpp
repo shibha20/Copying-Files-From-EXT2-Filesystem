@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include<string>
+#include <cstddef>
 
 using namespace std;
 
@@ -47,22 +48,29 @@ uint32_t allocateInode(struct Ext2File *f,int32_t group);
 int32_t freeInode(struct Ext2File *f,uint32_t iNum);
 void dumpInode(Inode *inode);
 
+//Functions to access data blocks in an ext2file 
 int32_t fetchBlockFromFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, void *buf);
 int32_t writeBlockToFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, void *buf,uint32_t iNum);
 int32_t allocateBlock(struct Ext2File *f, uint32_t groupNumber);
 int32_t blockInUse (struct Ext2File *f,uint32_t blockGroupNumber,uint32_t bNum);
 
+//functions to access directories in an ext2 file system 
 struct Directory *openDir(struct  Ext2File *f, uint32_t iNum);
 bool getNextDirent(struct Directory *d,uint32_t &iNum,char *name);
 void rewindDir(struct Directory *d);
 void closeDir(struct Directory *d);
 
+//function to navigate within directories in an ext2 file system 
 uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target);
 uint32_t traversePath(Ext2File *f);
+
+//function to list files/ directories in an ext2file systme 
 void displayAllFilesInVDI (struct  Ext2File *f,uint32_t dirNum);
 void displayFilesWithInfo(Ext2File *f, uint32_t dirNum);
+
 void programEngine();
-void filePermission(struct Inode inode);
+string returnPermission(string permission,uint16_t i_mode);
+uint32_t copyFilesFromHost (Ext2File *f, char *hostFilePath);
 
 //Contains of VDI header structure
 struct HeaderStructure{
@@ -141,6 +149,7 @@ struct PartitionEntry{
     //Number of sectors in partition, sector stores a fixed amount of data in a partition,4 bytes
     uint32_t numSectors;
 } __attribute__((packed));
+
 /*The partition table describes the partitions of a storage device.
 This is a struct that holds the data necessary to work with partition.*/
 struct PartitionFile{
@@ -223,6 +232,9 @@ struct Ext2File{
     Ext2BlockGroupDescriptor* blockGroupDescriptorstable;
 }__attribute__((packed));
 
+
+//inode holds all the information about a file
+//this struct was provided by Dr.Kramer on discord
 struct Inode {
     uint16_t
             i_mode,
@@ -282,6 +294,7 @@ struct Directory{
 
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath);
 
+
 int main(){
    programEngine();
 }
@@ -295,6 +308,7 @@ void primaryDisplay(){
     cout << "Please enter 1,2, 3 or 4 based on your choice:  " << endl;
 }
 
+//main engine of the program that processes users choice 
 void programEngine(){
     primaryDisplay();
     int choice;
@@ -311,8 +325,6 @@ void programEngine(){
     }
 
     if (choice ==1){
-        // Ext2File *ext2Open (char *fn, int32_t pNum)
-        //input everything required;
         cout << "Type the path to the vdiFile System which you would like to copy from (Example : ../Test-fixed-1k.vdi) " << endl;
         char *vdiFileName = new char [256];
         cin >> vdiFileName;
@@ -325,8 +337,14 @@ void programEngine(){
         Ext2File *ext2File= ext2Open(vdiFileName,0);
         copyFileToHost(ext2File,vdiFile,hostFilePath);
     }else if (choice ==2){
-        //input everything required;
-        //copy files from host;
+        cout << "Type the path to the vdiFile System which you would like to copy to (Example : ../Test-fixed-1k.vdi) " << endl;
+        char *vdiFileName = new char [256];
+        cin >> vdiFileName;
+        cout << "Type the path to your file, which you would like to copy from" << endl;
+        char *hostFilePath = new char [256];
+        cin >> hostFilePath;
+        Ext2File *ext2File= ext2Open(vdiFileName,0);
+        copyFilesFromHost(ext2File,hostFilePath);
     }else if (choice ==3){
         cout << "Type the path to the vdiFile System whose files and directories you want to look at(Example : ../Test-fixed-1k.vdi) " << endl;
         char *vdiFileName = new char [256];
@@ -347,9 +365,11 @@ void programEngine(){
     char decision;
     cin >> decision;
     if (decision =='N') programEngine();
-    else cout << "Thank you for using the software!" << endl;
+    else cout << "Thank you for using the software!";
 }
+
 //start of step 1
+//open the passed vdi file 
 struct VDIFile *vdiOpen (char *fn){
     int fd = open(fn,O_RDWR|O_BINARY);
     //if file opened
@@ -372,12 +392,14 @@ struct VDIFile *vdiOpen (char *fn){
     }
 }
 
+//read the vdi file 
 ssize_t vdiRead (struct VDIFile *f,void *buf,size_t count){
     lseek(f->fd, f->cursor+f->header.offData, SEEK_SET);
     read(f->fd,buf,count);
     return 0;
 }
 
+//write on a vdi file 
 ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
     //seek the first position to be written at by adding the cursor to the start of the VDI file's data space
     lseek(f->fd,f->cursor + f->header.offData, SEEK_SET);
@@ -387,6 +409,7 @@ ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
 }
 
 //debugged based on Dr.Kramer's feedback
+//seek to a position within a vdi file 
 off_t vdiSeek (VDIFile *f, off_t offset, int anchor){
     //create a new location within the file
     off_t location;
@@ -706,12 +729,12 @@ void dumpBlockGroupDescriptorTableEntry (Ext2BlockGroupDescriptor *blockGroupDes
     cout << "Block Bitmap : " << blockGroupDescriptor->bg_block_bitmap << endl;
     cout << "Inode Bitmap : " << blockGroupDescriptor->bg_inode_bitmap << endl;
     cout << "Inode Table : " << blockGroupDescriptor->bg_inode_table << endl;
-    //cout << "Free Blocks : " << f->blockGroupDescriptorstable[i].bg_free_blocks_count <<endl;
-    //cout << "Free Inodes : " <<f->blockGroupDescriptorstable[i].bg_free_inodes_count <<endl;
+
 }
 //end of step 3
 
 //start of step 4
+//code based on info provided by Dr.Kramer on discord
 int32_t fetchInode(struct Ext2File *f,uint32_t iNum, struct Inode *buf){
     //find the block group in which the iNode is contained
     int blockGroupNumber = (iNum-1)/f->superBlocks.s_inodes_per_group;
@@ -1102,7 +1125,7 @@ struct Directory *openDir(struct  Ext2File *f, uint32_t iNum){
     return directory;
 }
 
-//Code based on conversation on discord between Mitchell and Dr.Kramer
+//Code based on conversation on discord between Mitchell and Dr.Kramer on discord
 //fetch the directory entries in the given directory
 bool getNextDirent(struct Directory *d,uint32_t &iNum,char *name){
     //while we are within the directory file
@@ -1165,6 +1188,7 @@ uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target){
     return 0;
 }
 
+//based on spex provided by Dr.Kramer in step 7
 uint32_t traversePath(Ext2File *f,char *path){
     uint32_t  start =1;
     uint32_t  len =strlen(path);
@@ -1185,16 +1209,22 @@ uint32_t traversePath(Ext2File *f,char *path){
 
 //start of step 8
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
-    cout << "Copying.. "<< endl;
+    cout << "Copying to the host system... "<< endl;
     char *vdiName = new char [256];
     vdiName = vdiFileName;
 
     uint8_t * dataBlock = NULL;
     dataBlock= new uint8_t [f->superBlocks.s_log_block_size];
+
+    //find the inode of the file that needs to be copied out
     uint32_t iNum = traversePath(f,vdiFileName);
     Inode inode;
     fetchInode(f,iNum,&inode);
+
+    //open the file that needs to be copied into
     int fd = open(hostFilePath,O_WRONLY|O_CREAT|O_BINARY|O_TRUNC,0666);
+
+    //get the number of bytes we need to copy
     int bytesLeft = inode.i_size,bNum=0;
 
     uint32_t  bytesWritten= 0;
@@ -1216,6 +1246,7 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     close (fd);
     delete [] dataBlock;
 }
+
 void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     Directory *directory;
     directory = openDir(f, dirNum);
@@ -1236,12 +1267,61 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     }
     cout << endl;
 }
+
+uint32_t copyFilesFromHost (Ext2File *f, char *hostFilePath){
+    int fd = open(hostFilePath,O_WRONLY|O_CREAT|O_BINARY|O_TRUNC,0666);
+    //current last dirent
+    uint32_t  iNum;
+    char name[256];
+    Directory *directory;
+    directory= openDir(f,2);
+    while (getNextDirent(directory,iNum,name));
+
+    //new inode and dirent for our file
+    Dirent *dirent;
+    uint32_t newInum = allocateInode(f,0);
+    Inode newInode;
+    fetchInode(f,newInum,&newInode);
+    //updating all the contents in dirent
+    dirent->fileType=1;
+    dirent->iNum= newInum;
+    string s = "";
+    int size = strlen(hostFilePath);
+    for (int i = 0; i < size; i++) {
+        s = s + hostFilePath[i];
+    }
+    size_t found = s.find_last_of("/\\");
+    string file = s.substr(found+1);
+    uint8_t fileNameSize = file.length();
+    for (int i = 0; i < fileNameSize+1 ; i++) {
+        dirent->name[i] = file[i];
+    }
+
+    dirent->nameLen = fileNameSize;
+    dirent->recLen = f->superBlocks.s_log_block_size- (dirent->nameLen + 8);
+
+    cout << dirent->name << endl;
+
+    Inode inode2;
+    fetchInode(f,2,&inode2);
+    int blockNumber = allocateBlock(f,0);
+
+    writeBlockToFile(f,&inode2,blockNumber, dirent, 2);
+
+    char buff[1024];
+
+    fetchBlockFromFile(f,&inode2,blockNumber,buff);
+    displayBufferPage(reinterpret_cast<uint8_t *>(&buff), 256, 0, 0);
+
+}
+
 //end of step 8
 
 string filepath;
 
 //extra credit
-
+//looked at this website to develop strategy for printing the file permission
+//https://wiki.archlinux.org/index.php/File_permissions_and_attributes#Numeric_method
 string returnPermission(string permission,uint16_t i_mode){
 
     int binary[100];
@@ -1259,11 +1339,13 @@ string returnPermission(string permission,uint16_t i_mode){
 
     int count = 0;
 
+    //reverse the binary to get the final binary
     for (int j = i - 1; j >= 0; j--) {
             a[count] = binary[j];
             count++;
     }
 
+    //set permission for group user and everyone else
     int group [i-11];
     int user[i-10];
     int eElse[i-9];
@@ -1304,6 +1386,8 @@ string returnPermission(string permission,uint16_t i_mode){
 
 }
 
+
+//display files in an ext2file system with file info
 void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
     Directory *directory;
     directory = openDir(f, dirNum);
@@ -1336,7 +1420,7 @@ void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
             string readableTime = ctime(&accessTime);
 
 
-
+            //printing file info
             cout << "File path : " << filepath << endl;
             cout << "File Permission : "  << finalPermission << endl;
             cout << "UID : " << inode.i_uid << endl;
@@ -1346,6 +1430,7 @@ void displayFilesWithInfo(Ext2File *f, uint32_t dirNum){
             cout << "Inode number : " << iNum << endl;
             cout << "Last Access Time : " << readableTime << endl;
 
+            //call the function again if the given file is a directory
             if (inode.i_mode == 16877) {
                 displayFilesWithInfo(f,iNum);
             }
