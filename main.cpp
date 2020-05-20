@@ -401,7 +401,6 @@ ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
     return 0;
 }
 
-//debugged based on Dr.Kramer's feedback
 //seek to a position within a vdi file
 off_t vdiSeek (VDIFile *f, off_t offset, int anchor){
     //create a new location within the file
@@ -452,7 +451,7 @@ void partitionClose(struct PartitionFile *f){
 }
 
 ssize_t partitionRead(struct PartitionFile *partitionFile,void *buf,size_t count){
-    /* Explaination by Nirajan on discord: Finding the beginning of partition:
+    /* inding the beginning of partition:
      LBA is basically sector number. MBR is the first sector with LBA 0.
      The MBR is not located in a partition; it is located at a first sector of the device (physical offset 0), preceding the first partition.
      After first 446 bytes in a VDI header, the next 64 bytes contain 4 partition entries of size 16 bytes each.
@@ -460,7 +459,6 @@ ssize_t partitionRead(struct PartitionFile *partitionFile,void *buf,size_t count
      sectors from first sector (mbr) to given partition. So, lba of first partition*512 gives total number of bytes from the beginning of the disk
      the first partition.*/
 
-    //code written under Dr.Kramer's guidance
 
     // If cursor is outside the partition, read only the contents reduce our count to read the contents only within our partition
     if ( (partitionFile->f->cursor + count) >  (512 * (partitionFile->partitionEntry.LBAFirstSector + partitionFile->partitionEntry.numSectors)) ){
@@ -725,7 +723,6 @@ void dumpBlockGroupDescriptorTableEntry (Ext2BlockGroupDescriptor *blockGroupDes
 //end of step 3
 
 //start of step 4
-//code based on info provided by Dr.Kramer on discord
 int32_t fetchInode(struct Ext2File *f,uint32_t iNum, struct Inode *buf){
     //find the block group in which the iNode is contained
     int blockGroupNumber = (iNum-1)/f->superBlocks.s_inodes_per_group;
@@ -821,7 +818,6 @@ uint32_t allocateInode(struct Ext2File *f,int32_t group) {
 int32_t freeInode(struct Ext2File *f,uint32_t iNum){
     uint32_t e = inodeInUse(f,iNum);
     //iNum is the allocted inode
-    //following code is for marking the free inode as allocated
     iNum--;
     uint8_t * block_with_inode_bitmap = NULL;
     block_with_inode_bitmap= new uint8_t [f->superBlocks.s_log_block_size];
@@ -1121,7 +1117,6 @@ struct Directory *openDir(struct  Ext2File *f, uint32_t iNum){
     return directory;
 }
 
-//Code based on conversation on discord between Mitchell and Dr.Kramer on discord
 //fetch the directory entries in the given directory
 bool getNextDirent(struct Directory *d,uint32_t &iNum,char *name){
     //while we are within the directory file
@@ -1184,7 +1179,6 @@ uint32_t searchDir(struct Ext2File *f,uint32_t iNum,char *target){
     return 0;
 }
 
-//based on spex provided by Dr.Kramer in step 7
 uint32_t traversePath(Ext2File *f,char *path){
     uint32_t  start =1;
     uint32_t  len =strlen(path);
@@ -1204,6 +1198,7 @@ uint32_t traversePath(Ext2File *f,char *path){
 //end of step 7
 
 //start of step 8
+//copy file from an ext2file system to a host system 
 uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     cout << "Copying to the host system... "<< endl;
     char *vdiName = new char [256];
@@ -1268,7 +1263,6 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
 
 string filepath;
 
-//extra credit
 //looked at this website to develop strategy for printing the file permission
 //https://wiki.archlinux.org/index.php/File_permissions_and_attributes#Numeric_method
 string returnPermission(string permission,uint16_t i_mode){
