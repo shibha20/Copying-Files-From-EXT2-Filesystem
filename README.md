@@ -1,5 +1,7 @@
 # Copying-Files-To-and-From-EXT2-Filesystem
 
+Operating System Class' Term Project 
+
 Goals: 
 1. Design and implement a software that copy files out of a VirtualBox VDI file containing a Linux ext2 filesystem to a host system without corrupting the VDI filesystem. 
 2. List all files and directories in the given VDI filesystem.
