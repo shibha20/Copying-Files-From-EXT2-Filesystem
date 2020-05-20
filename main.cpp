@@ -6,8 +6,10 @@
 #include <cstring>
 #include<string>
 #include <cstddef>
+#include <libgen.h>
 
 using namespace std;
+
 
 void primaryDisplay();
 
@@ -299,13 +301,11 @@ int main(){
    programEngine();
 }
 
-
 void primaryDisplay(){
     cout << "1. Copy A File From a VDI File " << endl;
-    cout << "2. Copy A File to a VDI File " << endl;
-    cout << "3. List all the directories and files in a VDI File" << endl;
-    cout << "4. Show properties of all the files and directories in a VDI File" << endl;
-    cout << "Please enter 1,2, 3 or 4 based on your choice:  " << endl;
+    cout << "2. List all the directories and files in a VDI File" << endl;
+    cout << "3. Show properties of all the files and directories in a VDI File" << endl;
+    cout << "Please enter 1,2, or 3 based on your choice:  " << endl;
 }
 
 //main engine of the program that processes users choice 
@@ -314,21 +314,21 @@ void programEngine(){
     int choice;
     cin >> choice;
 
-    while (choice <1 || choice > 4 ){
+    while (choice <1 || choice > 3 ){
         cout << endl;
-        cout << "Please make a choice between 1 and 4" << endl;
+        cout << "Please make a choice between 1 and 3" << endl;
         primaryDisplay();
         cin >> choice;
-        if (choice > 0 && choice <=4 ){
+        if (choice > 0 && choice <=3 ){
             break;
         }
     }
 
     if (choice ==1){
-        cout << "Type the path to the vdiFile System which you would like to copy from (Example : ../Test-fixed-1k.vdi) " << endl;
+        cout << "Type the path to the vdiFile System which you would like to copy from (Example : ../Test-fixed-4k.vdi) " << endl;
         char *vdiFileName = new char [256];
         cin >> vdiFileName;
-        cout << "Type the path to the file in the vdiFileSystem which you would like to copy to your host system" << endl;
+        cout << "Type the path to the file in the vdiFileSystem which you would like to copy to your host system (Example: /examples/08.Strings/StringCaseChanges/StringCaseChanges.txt)" << endl;
         char *vdiFile = new char [256];
         cin >> vdiFile;
         cout << "Type the path to the name of the file in your host which you would like to copy over to" << endl;
@@ -337,23 +337,14 @@ void programEngine(){
         Ext2File *ext2File= ext2Open(vdiFileName,0);
         copyFileToHost(ext2File,vdiFile,hostFilePath);
     }else if (choice ==2){
-        cout << "Type the path to the vdiFile System which you would like to copy to (Example : ../Test-fixed-1k.vdi) " << endl;
-        char *vdiFileName = new char [256];
-        cin >> vdiFileName;
-        cout << "Type the path to your file, which you would like to copy from" << endl;
-        char *hostFilePath = new char [256];
-        cin >> hostFilePath;
-        Ext2File *ext2File= ext2Open(vdiFileName,0);
-        copyFilesFromHost(ext2File,hostFilePath);
-    }else if (choice ==3){
-        cout << "Type the path to the vdiFile System whose files and directories you want to look at(Example : ../Test-fixed-1k.vdi) " << endl;
+        cout << "Type the path to the vdiFile System whose files and directories you want to look at(Example : ../Test-fixed-4k.vdi) " << endl;
         char *vdiFileName = new char [256];
         cin >> vdiFileName;
         cout << endl;
         Ext2File *ext2File= ext2Open(vdiFileName,0);
         displayAllFilesInVDI (ext2File,2);
     }else{
-        cout << "Type the path to the vdiFile System whose files and directories information you want to look at(Example : ../Test-fixed-1k.vdi) " << endl;
+        cout << "Type the path to the vdiFile System whose files and directories information you want to look at(Example : ../Test-fixed-4k.vdi) " << endl;
         char *vdiFileName = new char [256];
         cin >> vdiFileName;
         cout << endl;
@@ -365,11 +356,13 @@ void programEngine(){
     char decision;
     cin >> decision;
     if (decision =='N') programEngine();
-    else cout << "Thank you for using the software!";
+    else{
+        cout << "Thank you for using the software!";
+    }
 }
 
 //start of step 1
-//open the passed vdi file 
+//open the passed vdi file
 struct VDIFile *vdiOpen (char *fn){
     int fd = open(fn,O_RDWR|O_BINARY);
     //if file opened
@@ -392,14 +385,14 @@ struct VDIFile *vdiOpen (char *fn){
     }
 }
 
-//read the vdi file 
+//read the vdi file
 ssize_t vdiRead (struct VDIFile *f,void *buf,size_t count){
     lseek(f->fd, f->cursor+f->header.offData, SEEK_SET);
     read(f->fd,buf,count);
     return 0;
 }
 
-//write on a vdi file 
+//write on a vdi file
 ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
     //seek the first position to be written at by adding the cursor to the start of the VDI file's data space
     lseek(f->fd,f->cursor + f->header.offData, SEEK_SET);
@@ -409,7 +402,7 @@ ssize_t  vdiWrite (struct VDIFile *f,void *buf, size_t count){
 }
 
 //debugged based on Dr.Kramer's feedback
-//seek to a position within a vdi file 
+//seek to a position within a vdi file
 off_t vdiSeek (VDIFile *f, off_t offset, int anchor){
     //create a new location within the file
     off_t location;
@@ -631,7 +624,6 @@ int32_t writeSuperblock(struct Ext2File *f,uint32_t blockNum, struct Ext2Superbl
     if (groupNumber==0){
         partitionSeek(f->partitionFile,f->superBlocks.s_first_data_block *f->superBlocks.s_log_block_size,SEEK_SET);
         partitionWrite(f->partitionFile,sb,1024);
-        (sb->s_log_block_size) = 1024 << sb->s_log_block_size;
     }
         //If copying to the copies of superblock in other block groups, seek to the first block in those block groups and write to them
     else{
@@ -639,7 +631,6 @@ int32_t writeSuperblock(struct Ext2File *f,uint32_t blockNum, struct Ext2Superbl
         int blockNumber = groupNumber * f->superBlocks.s_blocks_per_group ;
         writeBlock(f,blockNumber,buff);
         memcpy(sb,buff,1024);
-        (sb->s_log_block_size) = 1024 <<sb->s_log_block_size;
     }
     return 0;
 }
@@ -820,6 +811,10 @@ uint32_t allocateInode(struct Ext2File *f,int32_t group) {
 
     //writing the block back to the vdifile
     writeBlock(f,f->blockGroupDescriptorstable[blockGroupNumber].bg_inode_bitmap,block_with_inode_bitmap);
+
+
+    f->blockGroupDescriptorstable[blockGroupNumber].bg_free_inodes_count--;
+    f->superBlocks.s_free_inodes_count--;
     return iNumfinal;
 }
 
@@ -861,7 +856,6 @@ void dumpInode(Inode *inode){
 //end of step 4
 
 //start of step 5
-//fetch the block bNum in inode i to the given buffer
 int32_t fetchBlockFromFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, void *buf){
     uint32_t k = f->superBlocks.s_log_block_size/4;
     uint32_t * blockList= NULL;
@@ -937,6 +931,8 @@ int32_t fetchBlockFromFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, voi
 
 }
 
+
+//works if you try copying within a vdifile
 int32_t writeBlockToFile(struct Ext2File *f,struct Inode *i,uint32_t bNum, void *buf,uint32_t iNum){
     int groupNumber = round(iNum-1)/f->superBlocks.s_inodes_per_group;
     uint32_t  k = f->superBlocks.s_log_block_size/4;
@@ -1227,16 +1223,15 @@ uint32_t copyFileToHost(Ext2File*f, char *vdiFileName, char *hostFilePath){
     //get the number of bytes we need to copy
     int bytesLeft = inode.i_size,bNum=0;
 
-    uint32_t  bytesWritten= 0;
 
     while (bytesLeft > 0) {
         fetchBlockFromFile(f,&inode,bNum++,dataBlock);
         if (bytesLeft < f->superBlocks.s_log_block_size){
-            bytesWritten = write(fd,dataBlock,bytesLeft);
+            write(fd,dataBlock,bytesLeft);
             bytesLeft -= bytesLeft;
         }
         else{
-            bytesWritten = write(fd,dataBlock,f->superBlocks.s_log_block_size);
+            write(fd,dataBlock,f->superBlocks.s_log_block_size);
             bytesLeft -= f->superBlocks.s_log_block_size;
         }
     }
@@ -1268,52 +1263,6 @@ void displayAllFilesInVDI (Ext2File *f, uint32_t dirNum) {
     cout << endl;
 }
 
-uint32_t copyFilesFromHost (Ext2File *f, char *hostFilePath){
-    int fd = open(hostFilePath,O_WRONLY|O_CREAT|O_BINARY|O_TRUNC,0666);
-    //current last dirent
-    uint32_t  iNum;
-    char name[256];
-    Directory *directory;
-    directory= openDir(f,2);
-    while (getNextDirent(directory,iNum,name));
-
-    //new inode and dirent for our file
-    Dirent *dirent;
-    uint32_t newInum = allocateInode(f,0);
-    Inode newInode;
-    fetchInode(f,newInum,&newInode);
-    //updating all the contents in dirent
-    dirent->fileType=1;
-    dirent->iNum= newInum;
-    string s = "";
-    int size = strlen(hostFilePath);
-    for (int i = 0; i < size; i++) {
-        s = s + hostFilePath[i];
-    }
-    size_t found = s.find_last_of("/\\");
-    string file = s.substr(found+1);
-    uint8_t fileNameSize = file.length();
-    for (int i = 0; i < fileNameSize+1 ; i++) {
-        dirent->name[i] = file[i];
-    }
-
-    dirent->nameLen = fileNameSize;
-    dirent->recLen = f->superBlocks.s_log_block_size- (dirent->nameLen + 8);
-
-    cout << dirent->name << endl;
-
-    Inode inode2;
-    fetchInode(f,2,&inode2);
-    int blockNumber = allocateBlock(f,0);
-
-    writeBlockToFile(f,&inode2,blockNumber, dirent, 2);
-
-    char buff[1024];
-
-    fetchBlockFromFile(f,&inode2,blockNumber,buff);
-    displayBufferPage(reinterpret_cast<uint8_t *>(&buff), 256, 0, 0);
-
-}
 
 //end of step 8
 
